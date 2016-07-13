@@ -71,15 +71,22 @@ class TestFuzzyRange(unittest.TestCase):
 
 class TestLog2Rotate(unittest.TestCase):
 	def test_simple(self):
-		l2r = Log2Rotate()
+		l2r = Log2Rotate(fmt='%Y%m%d', interval='days')
 
-		state = [ 1, 2, 3, 4 ]
-		self.assertEqual([1, 3, 4], l2r.backups_to_keep(state))
+		state = [ '20160601', '20160602', '20160603', '20160604' ]
+		self.assertEqual(
+						['20160601', '20160603', '20160604'],
+						l2r.backups_to_keep(state))
 
 	def test_duplicates(self):
-		l2r = Log2Rotate()
+		l2r = Log2Rotate(fmt='%Y%m%d', interval='days')
 
-		state = [ 1, 1, 2, 2, 3, 3, 4, 4 ]
+		state = [
+			'20160601', '20160601',
+			'20160602', '20160602',
+			'20160603', '20160603',
+			'20160604', '20160604'
+		]
 		self.assertRaises(Log2RotatePeriodError, l2r.backups_to_keep, state)
 
 def _gen_state(n, fmt):
@@ -97,7 +104,8 @@ def _gen_state(n, fmt):
 class TestLog2RotateStr(unittest.TestCase):
 	def setUp(self):
 		self.fmt = "backup-%Y%m%d"
-		self.l2r = Log2RotateStr(fmt=self.fmt)
+		self.interval = "days"
+		self.l2r = Log2RotateStr(fmt=self.fmt, interval=self.interval)
 
 	def test_zero(self):
 		self.assertEqual(set(), self.l2r.backups_to_keep([]))
@@ -261,7 +269,11 @@ class TestLog2RotateStr(unittest.TestCase):
 class TestLog2RotateStrSkip(unittest.TestCase):
 	def setUp(self):
 		self.fmt = "backup-%Y%m%d"
-		self.l2r = Log2RotateStr(fmt=self.fmt, skip=3)
+		self.interval = "days"
+		self.l2r = Log2RotateStr(
+                        fmt=self.fmt,
+                        skip=3,
+                        interval=self.interval)
 
 	def _gen_state(self, n):
 		return _gen_state(n, self.fmt)
@@ -296,6 +308,7 @@ class TestLog2RotateStrSkip(unittest.TestCase):
 class MockArgs(object):
 	def __init__(self):
 		self.fmt = "%Y-%m-%d"
+		self.interval = "days"
 		self.skip = 0
 
 	def __getattr__(self, name):

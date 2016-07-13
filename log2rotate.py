@@ -17,7 +17,9 @@ class Log2RotatePeriodError(ValueError): pass
 
 class Log2Rotate(object):
 	def __init__(self, **kwargs):
-		pass
+		self.fmt = kwargs['fmt']
+		self.interval = kwargs['interval']
+		super(Log2Rotate, self).__init__()
 
 	def _offset_to_backup_dict(self, last, state):
 		n0_to_b = {}
@@ -83,26 +85,19 @@ class Log2Rotate(object):
 
 		return backups_to_keep(n)
 
+	def strptime(self, s):
+		return datetime.datetime.strptime(s, self.fmt)
+
 	# Algorithm above assumes that sub(x, y) == 0 iff x == y.
 	#
 	# This  assumption can break for instance if you have hourly backups
 	# and sub() assumes daily backups.
-	def sub(self, x, y):
-		return x - y
-
-class Log2RotateDatetime(Log2Rotate):
-	def __init__(self, **kwargs):
-		self.fmt = kwargs['fmt']
-		super(Log2RotateDatetime, self).__init__(**kwargs)
-
-	def strptime(self, s):
-		return datetime.datetime.strptime(s, self.fmt)
-
-	def sub(self, x, y):
-		x2 = self.strptime(x)
-		y2 = self.strptime(y)
-
-		return (x2 - y2).days
+	def sub(self, x_str, y_str):
+		x_time = self.strptime(x_str)
+		y_time = self.strptime(y_str)
+                time_diff = x_time - y_time
+                delta_unit = getattr(time_diff, self.interval)
+		return delta_unit
 
 class Log2RotateSkip(Log2Rotate):
 	def __init__(self, **kwargs):
@@ -120,12 +115,16 @@ class Log2RotateSkip(Log2Rotate):
 
 		return r
 
-class Log2RotateStr(Log2RotateDatetime, Log2RotateSkip, Log2Rotate):
+class Log2RotateStr(Log2RotateSkip, Log2Rotate):
 	pass
 
 def run(args, inp):
 
-	l2r = Log2RotateStr(fmt=args.fmt, skip=args.skip, fuzz=args.fuzz)
+	l2r = Log2RotateStr(
+		fmt=args.fmt,
+		interval=args.interval,
+		skip=args.skip,
+		fuzz=args.fuzz)
 
 	inp_orig = set(inp)
 
@@ -174,6 +173,13 @@ def main():
 			help="do fuzzy matching for up to NUM missing backups in series")
 	parser.add_argument('-f', '--format', metavar='FMT', dest='fmt', default="%Y-%m-%d",
 			help="use FMT for parsing date from backup name")
+	parser.add_argument('-i', '--interval', metavar='INTERVAL', dest='interval', default="days",
+			help="""
+			use INTERVAL to set the highest frequency your backups occur, for which you'd like rotation
+			Valid values are most of the "Instance attributes" class properties
+			of Python's datetime.datetime: "year", "month", "day",
+			"hour", "minute", "microsecond"
+			""")
 
 	args = parser.parse_args()
 
